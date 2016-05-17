@@ -1473,7 +1473,8 @@ sub set_rt_chars {
           my $songJson = '{"song": {"title": "'.$title.'"}}';
 
           my $rq = HTTP::Request->new('POST', $apiEndpoint);
-          $rq->header('Content-Type' => 'application/json');
+          $rq->header('Accept' => 'application/json');
+          $rq->header('Content-type' => 'application/json');
           $rq->content($songJson);
 
           $ua->request($rq);
