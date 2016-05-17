@@ -105,6 +105,7 @@ my $linebuf;
 my $fmfreq;
 
 my $previous_RT = '';
+my $apiEndpoint = $ENV{'NOREPEAT_API_ENDPOINT'};
 
 init_data();
 get_options();
@@ -1460,13 +1461,10 @@ sub set_rt_chars {
         # cater for bad signal messing up some chars
         my $similarity = similarity($previous_RT, $displayed_RT);
         if($similarity < 0.95) {
-          print("similarity: ".$similarity."~");
-
           $previous_RT = $displayed_RT;
           utter (q{}, ' RT_OK_CHANGED');
 
           my $ua = LWP::UserAgent->new;
-          my $apiEndpoint = 'http://localhost:3000/songs';
 
           my $title = $displayed_RT;
           $title =~ s/^\s+|\s+$//g;
