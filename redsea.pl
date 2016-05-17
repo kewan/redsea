@@ -28,6 +28,9 @@ use IPC::Cmd     qw/can_run/;
 use Encode       qw/decode/;
 use POSIX        qw/strftime/;
 use Getopt::Std;
+use String::Similarity;
+use HTTP::Request::Common;
+require LWP::UserAgent;
 
 binmode(STDOUT, ':encoding(UTF-8)');
 
@@ -101,6 +104,7 @@ my $bitpipe;
 my $linebuf;
 my $fmfreq;
 
+my $previous_RT = '';
 
 init_data();
 get_options();
@@ -1436,15 +1440,47 @@ sub set_rt_chars {
   my $total_received
     = grep (defined $_, @{$station{$pi}{RTrcvd}}[0..$minRTlen]);
   $station{$pi}{hasFullRT} = ($total_received >= $minRTlen ? TRUE : FALSE);
-
+  
   my $displayed_RT
     = ($is_interactive ? substr($station{$pi}{RTbuf},0,$lok).REVERSE.
                          substr($station{$pi}{RTbuf},$lok,scalar(@a)).RESET.
                          substr($station{$pi}{RTbuf},$lok+scalar(@a)) :
                          $station{$pi}{RTbuf});
+
   utter ('  RT:     '.$displayed_RT, q{ RT:'}.$displayed_RT.q{'});
+
   if ($station{$pi}{hasFullRT}) {
     utter (q{}, ' RT_OK');
+
+    if($displayed_RT ne $previous_RT) {
+
+        # Regex ignore list ie ^Gold Coast ^92.5 Gold ^Tweed Coast
+        # if not in ignore list curl post to record song title
+
+        # cater for bad signal messing up some chars
+        my $similarity = similarity($previous_RT, $displayed_RT);
+        if($similarity < 0.95) {
+          print("similarity: ".$similarity."~");
+
+          $previous_RT = $displayed_RT;
+          utter (q{}, ' RT_OK_CHANGED');
+
+          my $ua = LWP::UserAgent->new;
+          my $apiEndpoint = 'http://localhost:3000/songs';
+
+          my $title = $displayed_RT;
+          $title =~ s/^\s+|\s+$//g;
+          $title =~ s/↵//g;
+
+          my $songJson = '{"song": {"title": "'.$title.'"}}';
+
+          my $rq = HTTP::Request->new('POST', $apiEndpoint);
+          $rq->header('Content-Type' => 'application/json');
+          $rq->content($songJson);
+
+          $ua->request($rq);
+        }
+    }
   }
 
   utter ('          '. join(q{}, (map ((defined) ? q{^} : q{ },
